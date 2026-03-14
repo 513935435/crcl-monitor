@@ -1,0 +1,39 @@
+name: CRCL Daily Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 0 * * *"
+
+jobs:
+  crcl-daily:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+      FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+      FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Run CRCL notifier
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File .\crcl_notifier.ps1
+
+      - name: Upload CRCL artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crcl-report-${{ github.run_id }}
+          path: |
+            .state/crcl/latest_report.json
+            .state/crcl/latest_report_chart.csv
+            .state/crcl/latest_report_chart.png
+          if-no-files-found: warn

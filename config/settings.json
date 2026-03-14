@@ -1,0 +1,10 @@
+{
+  "reportName": "理性投资系统日报",
+  "timezone": "Asia/Shanghai",
+  "maxNewsPerTicker": 3,
+  "benchmarkSymbols": {
+    "us": "^GSPC",
+    "china": "000001.SS",
+    "hongkong": "^HSI"
+  }
+}
