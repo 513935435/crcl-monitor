@@ -28,6 +28,68 @@ jobs:
         run: |
           powershell -ExecutionPolicy Bypass -File .\crcl_notifier.ps1
 
+      - name: Write Job Summary
+        if: always()
+        shell: pwsh
+        run: |
+          $reportPath = ".state/crcl/latest_report.json"
+          $pngPath = ".state/crcl/latest_report_chart.png"
+          $csvPath = ".state/crcl/latest_report_chart.csv"
+          
+          if (-not (Test-Path $reportPath)) {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## CRCL Daily Summary"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "Report file not found."
+            exit 0
+          }
+          
+          $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+          $themeLines = @()
+          foreach ($item in $report.themePulse) {
+            $themeLines += "- $($item.label): score $($item.score), mentions $($item.mentions)"
+          }
+          
+          $watchLines = @()
+          foreach ($item in $report.tomorrowWatchlist) {
+            $watchLines += "- $item"
+          }
+          
+          $chartStatus = if (Test-Path $pngPath) { "ready" } else { "missing" }
+          $csvStatus = if (Test-Path $csvPath) { "ready" } else { "missing" }
+          
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## CRCL Daily Summary"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Date:** $($report.date)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Recommendation"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Action: $($report.action.recommendation)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Confidence: $($report.action.confidence)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Driver score: $($report.marketSnapshot.driver_score)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Score change: $($report.marketSnapshot.driver_score_change)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Market Snapshot"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- CRCL: $($report.marketSnapshot.crcl_price) ($($report.marketSnapshot.crcl_change))"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- BTC: $($report.marketSnapshot.btc_price) ($($report.marketSnapshot.btc_change))"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- USDC market cap: $($report.marketSnapshot.usdc_mcap) ($($report.marketSnapshot.usdc_change))"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Fear & Greed: $($report.marketSnapshot.fear_greed)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Theme Pulse"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ($themeLines -join "`n")
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Tomorrow Watchlist"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ($watchLines -join "`n")
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Artifacts"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- JSON: ready"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Chart PNG: $chartStatus"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Chart CSV: $csvStatus"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Delivery"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Webhook present: $($report.delivery.webhook_present)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- App credentials present: $($report.delivery.app_credentials_present)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Text push success: $($report.delivery.text_push_success)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Image push attempted: $($report.delivery.image_push_attempted)"
+
       - name: Upload CRCL artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -623,6 +623,10 @@ async function sendFeishu(text, imageKey) {
   return true;
 }
 
+function isGitHubActions() {
+  return process.env.GITHUB_ACTIONS === "true";
+}
+
 async function main() {
   await fs.mkdir(STATE_DIR, { recursive: true });
 
@@ -695,11 +699,26 @@ async function main() {
   const imageKey = await uploadImage(pngPath);
   report.chart = { local_png: pngPath, feishu_image_key: imageKey };
 
-  await fs.writeFile(REPORT_FILE, JSON.stringify(report, null, 2), "utf8");
   const markdown = buildMarkdown(report);
-  console.log(markdown);
   const pushed = await sendFeishu(markdown, imageKey).catch(() => false);
+  report.delivery = {
+    webhook_present: Boolean(process.env.FEISHU_WEBHOOK_URL),
+    app_credentials_present: Boolean(process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET),
+    text_push_success: pushed,
+    image_push_attempted: Boolean(imageKey),
+  };
+
+  await fs.writeFile(REPORT_FILE, JSON.stringify(report, null, 2), "utf8");
+  console.log(markdown);
   console.log(pushed ? "\nCRCL Feishu 推送成功。" : "\nCRCL Feishu 推送失败。");
+
+  if (!process.env.FEISHU_WEBHOOK_URL && isGitHubActions()) {
+    throw new Error("Missing FEISHU_WEBHOOK_URL in GitHub Actions secrets.");
+  }
+
+  if (!pushed && isGitHubActions()) {
+    throw new Error("CRCL Feishu push failed in GitHub Actions.");
+  }
 }
 
 main().catch((error) => {
