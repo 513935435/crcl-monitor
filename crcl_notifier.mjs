@@ -16,6 +16,11 @@ const CHART_PNG_FILE = path.join(STATE_DIR, "latest_report_chart.png");
 const USER_AGENT = "Mozilla/5.0 (compatible; CRCLMonitor/isolated-1.0)";
 const TZ = "Asia/Shanghai";
 
+function isPushEnabled() {
+  const raw = `${process.env.CRCL_PUSH_ENABLED ?? "true"}`.trim().toLowerCase();
+  return !["0", "false", "off", "no"].includes(raw);
+}
+
 const NEWS_QUERIES = [
   "Circle CRCL USDC stablecoin when:7d",
   "stablecoin regulation Circle Tether PYUSD when:7d",
@@ -604,6 +609,7 @@ async function uploadImage(filePath) {
 }
 
 async function sendFeishu(text, imageKey) {
+  if (!isPushEnabled()) return false;
   const webhook = process.env.FEISHU_WEBHOOK_URL;
   if (!webhook) return false;
   const textResp = await fetch(webhook, {
@@ -696,12 +702,13 @@ async function main() {
 
   await writeChartCsv(report.scoreSeries);
   const pngPath = await generateChartPng();
-  const imageKey = await uploadImage(pngPath);
+  const imageKey = isPushEnabled() ? await uploadImage(pngPath) : null;
   report.chart = { local_png: pngPath, feishu_image_key: imageKey };
 
   const markdown = buildMarkdown(report);
   const pushed = await sendFeishu(markdown, imageKey).catch(() => false);
   report.delivery = {
+    push_enabled: isPushEnabled(),
     webhook_present: Boolean(process.env.FEISHU_WEBHOOK_URL),
     app_credentials_present: Boolean(process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET),
     text_push_success: pushed,
@@ -710,13 +717,13 @@ async function main() {
 
   await fs.writeFile(REPORT_FILE, JSON.stringify(report, null, 2), "utf8");
   console.log(markdown);
-  console.log(pushed ? "\nCRCL Feishu 推送成功。" : "\nCRCL Feishu 推送失败。");
+  console.log(!isPushEnabled() ? "\nCRCL Feishu 推送已暂停。" : pushed ? "\nCRCL Feishu 推送成功。" : "\nCRCL Feishu 推送失败。");
 
-  if (!process.env.FEISHU_WEBHOOK_URL && isGitHubActions()) {
+  if (isPushEnabled() && !process.env.FEISHU_WEBHOOK_URL && isGitHubActions()) {
     throw new Error("Missing FEISHU_WEBHOOK_URL in GitHub Actions secrets.");
   }
 
-  if (!pushed && isGitHubActions()) {
+  if (isPushEnabled() && !pushed && isGitHubActions()) {
     throw new Error("CRCL Feishu push failed in GitHub Actions.");
   }
 }

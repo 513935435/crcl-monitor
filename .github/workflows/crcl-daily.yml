@@ -10,6 +10,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     env:
+      CRCL_PUSH_ENABLED: "false"
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
       FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
@@ -85,6 +86,7 @@ jobs:
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Chart CSV: $csvStatus"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Delivery"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Push enabled: $($report.delivery.push_enabled)"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Webhook present: $($report.delivery.webhook_present)"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- App credentials present: $($report.delivery.app_credentials_present)"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Text push success: $($report.delivery.text_push_success)"
